@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: #1f2937;
+  background-color: #f3f4f6;
+}
+
+/* Customização do FullCalendar para ficar mais moderno */
+.fc {
+  --fc-border-color: #e5e7eb;
+  --fc-button-text-color: #374151;
+  --fc-button-bg-color: #ffffff;
+  --fc-button-border-color: #d1d5db;
+  --fc-button-hover-bg-color: #f3f4f6;
+  --fc-button-hover-border-color: #d1d5db;
+  --fc-button-active-bg-color: #e5e7eb;
+  --fc-button-active-border-color: #d1d5db;
+  --fc-event-bg-color: #3b82f6;
+  --fc-event-border-color: #2563eb;
+  --fc-today-bg-color: #eff6ff;
+  font-family: inherit;
+}
+.fc-theme-standard td, .fc-theme-standard th {
+  border-color: var(--fc-border-color);
+}
+.fc-event {
+  border-radius: 6px;
+  padding: 2px 4px;
+  font-size: 0.85rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s;
+  cursor: pointer;
+}
+.fc-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
