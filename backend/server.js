@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
-const { getAgendamentos } = require('./db');
+const { getAgendamentos, getAgendamentoDetalhes } = require('./db.js');
 
 const app = express();
 app.use(cors());
@@ -32,8 +31,7 @@ function formatOriginalTime(timeObj) {
 // Retorna buffer para string caso necessário
 function parseString(val) {
     if (!val) return null;
-    // O node-firebird retorna BLOBs como funções de leitura. Ignoramos no preview rápido.
-    if (typeof val === 'function') return '[Diagnóstico Omitido - Texto Longo]';
+    if (typeof val === 'function') return '';
     return val.toString();
 }
 
@@ -54,7 +52,6 @@ app.get('/api/agendamentos', async (req, res) => {
                 end: parseDateTime(os.DATA_ENTREGA, os.HORA_TERMINO, true),
                 extendedProps: {
                     tecnico: parseString(os.TECNICO_NOME),
-                    diagnostico: parseString(os.DIAGNOSTICO),
                     idade: parseString(os.IDADE_DO_PET),
                     raca: parseString(os.RACA_DO_PET),
                     peso: parseString(os.KG_DO_PET),
@@ -68,6 +65,24 @@ app.get('/api/agendamentos', async (req, res) => {
     } catch (error) {
         console.error('Erro na rota /api/agendamentos:', error);
         res.status(500).json({ error: 'Erro ao buscar agendamentos do banco de dados.', details: error.message });
+    }
+});
+
+app.get('/api/agendamentos/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const detalhes = await getAgendamentoDetalhes(id);
+        if (!detalhes) {
+            return res.status(404).json({ error: 'Agendamento não encontrado.' });
+        }
+        res.json({
+            id: detalhes.OS_ID.toString(),
+            diagnostico: parseString(detalhes.DIAGNOSTICO) || 'Sem observações/diagnóstico cadastrado.',
+            laudo: parseString(detalhes.LAUDO) || ''
+        });
+    } catch (error) {
+        console.error('Erro na rota /api/agendamentos/:id:', error);
+        res.status(500).json({ error: 'Erro ao buscar detalhes do agendamento.', details: error.message });
     }
 });
 

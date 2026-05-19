@@ -2,6 +2,11 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Impede que erros inesperados e crashes de drivers de terceiros (como o bug do node-firebird) derrubem o app inteiro
+process.on('uncaughtException', (error) => {
+  console.error('Erro não tratado no processo principal capturado:', error);
+});
+
 const isDev = process.env.NODE_ENV === 'development';
 
 // Configura o dotenv baseado no ambiente (Dev vs Prod instalado)

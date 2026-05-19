@@ -20,7 +20,7 @@
       "output": "dist-electron"
     },
     "win": {
-      "target": "nsis"
+      "target": "zip"
     },
     "extraFiles": [
       {

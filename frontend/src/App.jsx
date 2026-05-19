@@ -12,6 +12,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedEventDetails, setSelectedEventDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   const fetchAgendamentos = async () => {
     setLoading(true);
@@ -50,8 +52,21 @@ function App() {
     return () => clearInterval(intervalId);
   }, []);
 
-  const handleEventClick = (clickInfo) => {
+  const handleEventClick = async (clickInfo) => {
     setSelectedEvent(clickInfo.event);
+    setSelectedEventDetails(null);
+    setLoadingDetails(true);
+    try {
+      const response = await axios.get(`http://localhost:3001/api/agendamentos/${clickInfo.event.id}`);
+      setSelectedEventDetails(response.data);
+    } catch (err) {
+      console.error("Erro ao buscar detalhes do agendamento:", err);
+      setSelectedEventDetails({
+        diagnostico: "Não foi possível carregar os detalhes do banco de dados para este agendamento."
+      });
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   const renderEventContent = (eventInfo) => {
@@ -251,17 +266,25 @@ function App() {
                 </div>
               </div>
 
-              {/* Diagnóstico */}
-              {selectedEvent.extendedProps?.diagnostico && selectedEvent.extendedProps.diagnostico !== 'null' && (
-                <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                  <p className="text-xs text-blue-700 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-                    <Activity className="w-4 h-4" /> Observações / Diagnóstico
-                  </p>
+              {/* Diagnóstico sob demanda */}
+              <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                <p className="text-xs text-blue-700 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <Activity className="w-4 h-4" /> Observações / Diagnóstico
+                </p>
+                {loadingDetails ? (
+                  <div className="flex flex-col gap-2 animate-pulse py-1">
+                    <div className="h-3 bg-blue-200/50 rounded w-3/4"></div>
+                    <div className="h-3 bg-blue-200/50 rounded w-5/6"></div>
+                    <div className="h-3 bg-blue-200/50 rounded w-2/3"></div>
+                  </div>
+                ) : selectedEventDetails ? (
                   <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto">
-                    {selectedEvent.extendedProps.diagnostico}
+                    {selectedEventDetails.diagnostico}
                   </p>
-                </div>
-              )}
+                ) : (
+                  <p className="text-sm text-gray-400 italic">Sem diagnóstico registrado.</p>
+                )}
+              </div>
 
             </div>
           </div>
