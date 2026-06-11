@@ -1,7 +1,12 @@
 node_modules/
 dist/
+dist-app/
+dist-electron/
 build/
+backend/
 .env
 *.log
 .vite/
 .cache/
+__pycache__/
+*.pyc

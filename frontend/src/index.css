@@ -10,7 +10,16 @@
   background-color: #f3f4f6;
 }
 
-/* Customização do FullCalendar para ficar mais moderno */
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Customizacao do FullCalendar para ficar mais moderno */
 .fc {
   --fc-border-color: #e5e7eb;
   --fc-button-text-color: #374151;
@@ -25,9 +34,51 @@
   --fc-today-bg-color: #eff6ff;
   font-family: inherit;
 }
-.fc-theme-standard td, .fc-theme-standard th {
+
+.fc-theme-standard td,
+.fc-theme-standard th {
   border-color: var(--fc-border-color);
 }
+
+.fc .fc-toolbar.fc-header-toolbar {
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.fc .fc-toolbar-title {
+  color: #0f172a;
+  font-size: 1.85rem;
+  font-weight: 800;
+}
+
+.fc .fc-toolbar-chunk {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.fc .fc-button {
+  border-radius: 0.85rem;
+  font-weight: 600;
+  padding: 0.6rem 0.95rem;
+  text-transform: none;
+}
+
+.fc .fc-col-header-cell-cushion {
+  padding: 0.75rem 0.35rem;
+  font-weight: 700;
+}
+
+.fc .fc-daygrid-day-number {
+  padding: 0.55rem;
+  font-weight: 700;
+}
+
+.fc .fc-timegrid-axis-cushion,
+.fc .fc-timegrid-slot-label-cushion {
+  font-size: 0.85rem;
+}
+
 .fc-event {
   border-radius: 6px;
   padding: 2px 4px;
@@ -36,7 +87,54 @@
   transition: transform 0.2s;
   cursor: pointer;
 }
+
 .fc-event:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 1024px) {
+  .fc .fc-toolbar.fc-header-toolbar {
+    align-items: stretch;
+  }
+
+  .fc .fc-toolbar-title {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+
+  .fc .fc-toolbar-chunk {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .fc .fc-toolbar {
+    flex-direction: column;
+  }
+
+  .fc .fc-toolbar.fc-header-toolbar {
+    margin-bottom: 1rem;
+  }
+
+  .fc .fc-toolbar-title {
+    font-size: 1.2rem;
+    line-height: 1.2;
+    max-width: 100%;
+  }
+
+  .fc .fc-button {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.8rem;
+  }
+
+  .fc .fc-col-header-cell-cushion,
+  .fc .fc-daygrid-day-number {
+    font-size: 0.82rem;
+  }
+
+  .fc .fc-daygrid-day-frame {
+    min-height: 5rem;
+  }
 }

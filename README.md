@@ -1,125 +1,114 @@
-# Proposta Arquitetural: Sistema de Agenda Híbrido (ERP Local + Nuvem)
+# Agenda LMD
 
-Esta proposta define a arquitetura, estrutura e o fluxo de dados para o sistema de agendamentos inspirado na "Avante Agenda", garantindo que ele funcione como extensão do ERP atual (Firebird) e prepare terreno para agendamentos online (PostgreSQL).
+Agenda LMD e uma aplicacao Electron com frontend React/Vite e API local Python para leitura de agendamentos no Firebird do cliente.
 
----
+## Arquitetura
 
-## 1. Arquitetura Recomendada
+```text
+Agenda LMD
+├─ frontend
+│  ├─ React/Vite
+│  └─ Electron
+├─ api-python
+│  ├─ FastAPI
+│  ├─ FDB
+│  ├─ Licenciamento
+│  └─ Endpoints REST
+└─ Firebird Cliente
+```
 
-A arquitetura adotará o padrão **Híbrido (Edge to Cloud)** para garantir o funcionamento offline no cliente e a disponibilidade online.
+O frontend continua consumindo os mesmos endpoints em `http://localhost:3001/api`.
 
-*   **Ambiente Local (Cliente / ERP)**:
-    *   **Banco de Dados**: Firebird (o mesmo utilizado pelo ERP atual). A entidade principal da agenda no Firebird será a **Ordem de Serviço (OS)**.
-    *   **API Local & Sync Agent**: Um serviço rodando localmente no servidor do cliente. Ele serve de *backend* para a aplicação local, grava no Firebird e roda rotinas de sincronização em background. Ele implementa o **Padrão Adapter**, traduzindo o formato de "Agendamento" (visto no calendário) para o formato nativo de "Ordem de Serviço" do ERP.
-    *   **Frontend Local**: Aplicação Web que atua tanto como **Módulo Preview** (somente leitura) quanto como **Módulo Acesso Total** (leitura/escrita), acessado pela intranet do cliente.
-*   **Ambiente em Nuvem (Online)**:
-    *   **Banco de Dados**: PostgreSQL (Arquitetura Multi-Tenant para atender múltiplos clientes em uma única base usando `tenant_id`).
-    *   **API Nuvem**: Recebe dados sincronizados pelas APIs locais dos clientes e gerencia as regras para agendamentos externos.
-    *   **Frontend Nuvem (Futuro)**: Portal de autoatendimento para o cliente final agendar horários online.
+## Endpoints
 
----
+- `GET /api/health`
+- `GET /api/agendamentos`
+- `GET /api/agendamentos/{id}`
+- `POST /api/licenses/activate`
+- `POST /api/licenses/verify-token`
+- `GET /api/licenses/{licenseKey}/status`
+- `POST /api/licenses/{licenseId}/usage`
 
-## 2. Separação dos Módulos
+## Banco Firebird
 
-*   **Módulo Preview Local**:
-    *   Autenticação atrelada a perfis de leitura.
-    *   Interface desabilita botões de criação, edição e exclusão.
-    *   Busca dados via API Local -> Banco Firebird.
-    *   Benefício principal: Velocidade instantânea e funcionamento sem internet.
-*   **Módulo de Acesso Total (Local)**:
-    *   Acessado por gerentes/recepcionistas com permissão de escrita.
-    *   Realiza CRUD no Firebird via API Local.
-    *   Ao salvar, o agendamento é salvo no Firebird e colocado em uma "fila" (status pendente) para o Sync Agent enviar à nuvem.
-*   **Módulo Online (Futuro)**:
-    *   Clientes finais acessam pela internet.
-    *   Grava diretamente no PostgreSQL, que por sua vez fica aguardando a API Local puxar os novos agendamentos criados online.
+A API Python le as variaveis abaixo:
 
----
+```env
+FB_HOST=127.0.0.1
+FB_PORT=3050
+FB_DATABASE=C:\caminho\para\DADOS.FDB
+FB_USER=SYSDBA
+FB_PASSWORD=masterkey
+FBCLIENT_PATH=C:\Program Files\Firebird\Firebird_3_0\fbclient.dll
+```
 
-## 3. Integração Legada: Ordem de Serviço (OS)
+`FBCLIENT_PATH` e opcional e permite selecionar explicitamente o `fbclient.dll` adequado ao ambiente.
 
-Como o ERP não possui uma tabela exclusiva de Agendamentos, utilizaremos a tabela de **Ordem de Serviço (OS)**. Para garantir o sucesso dessa arquitetura, aplicaremos as seguintes regras:
+## Licenciamento
 
-*   **Filtro de Diferenciação**: Para separar uma OS Comum de uma "OS Agendamento", utilizaremos o campo `DATA_PREVISTA` (e possivelmente um Técnico/Profissional alocado). OSs com esses campos preenchidos e válidas para a agenda futura serão interpretadas pelo sistema como agendamentos. *(Nota: Pode-se criar uma View ou Módulo SQL no Firebird para entregar os dados já formatados para a API Local)*.
-*   **Adapter Pattern na API**:
-    *   **Leitura**: A API Local executa o SQL/View no Firebird (tabela de OS) e traduz os campos (ex: `DATA_PREVISTA` vira `data_hora_inicio`) para o Frontend desenhar o calendário.
-    *   **Escrita**: Ao criar um agendamento no Frontend, a API Local executa um `INSERT INTO TB_OS`, preenchendo os campos obrigatórios do ERP para que a OS nasça corretamente estruturada.
+As variaveis permanecem compativeis:
 
----
+```env
+JWT_SECRET=
+LICENSE_API_URL=https://lmdsistemasdev.qzz.io/api
+LICENSE_API_KEY=
+PROJECT_SLUG=agenda-lmd-preview
+```
 
-## 4. Fluxo de Dados e Sincronização
+O cache local e gravado em `%APPDATA%\Agenda LMD`:
 
-A estratégia recomendada é a **Sincronização Assíncrona Bidirecional Baseada em Eventos**.
+- `.license-cache.json`
+- `.usage-cache.json`
 
-1.  **Escrita Local**: Usuário cria agendamento local -> API grava no Firebird (com campo `sync_status = 'PENDENTE'`) -> Serviço em background envia para API Nuvem via HTTP POST -> API Nuvem salva no PostgreSQL -> Serviço local marca como `sync_status = 'SINCRONIZADO'`.
-2.  **Escrita Online**: Cliente cria agendamento no portal -> API Nuvem grava no PostgreSQL -> API Local (via *Long Polling* ou WebSockets) detecta novos registros na nuvem -> API Local grava no Firebird.
-3.  **Queda de Internet**: O sistema local funciona normalmente. Agendamentos recebem `sync_status = 'PENDENTE'`. Quando a conexão retorna, o Sync Agent esvazia a fila enviando os dados em lote (batch).
+## Desenvolvimento
 
----
+```powershell
+cd api-python
+python -m pip install -r requirements.txt
 
-## 5. Estrutura Inicial das Tabelas
+cd ..\frontend
+npm install
+npm run dev:desktop
+```
 
-*Nota de Arquitetura:* O banco de dados em Nuvem (PostgreSQL) utilizará **UUIDv4** para segurança e isolamento (Multi-Tenant). Porém, o banco Local (Firebird) continuará utilizando seus geradores nativos numéricos (Inteiros) para a tabela de Ordem de Serviço. A correlação será feita via Sync Agent.
+Em desenvolvimento, o Electron inicia `python -m uvicorn main:app --host 127.0.0.1 --port 3001`.
 
-*   **`empresas`** (Apenas Nuvem)
-    *   `id` (UUID), `cnpj`, `nome_fantasia`, `ativo`
-*   **`profissionais`** (Nuvem) / **`tecnicos`** (Firebird)
-    *   `id` (UUID na Nuvem / INT no ERP), `tenant_id`, `nome`, `ativo`
-*   **`clientes`**
-    *   `id` (UUID na Nuvem / INT no ERP), `tenant_id`, `nome`, `telefone`, `documento`
-*   **`agendamentos`** (PostgreSQL na Nuvem)
-    *   `id` (UUID)
-    *   `tenant_id`
-    *   `id_os_local` (INT - Guarda o ID real da Ordem de Serviço gerado no Firebird)
-    *   `profissional_id`, `cliente_id`, `servico_id`
-    *   `data_hora_inicio` (Timestamp)
-    *   `data_hora_fim` (Timestamp)
-    *   `status` (Enum: AGENDADO, CONFIRMADO, CANCELADO, CONCLUIDO, FALTOU)
-    *   `origem` (Enum: LOCAL, NUVEM)
-    *   `sync_status` (Enum: PENDENTE, SINCRONIZADO, ERRO)
-    *   `updated_at` (Timestamp)
+## Build
 
----
+```powershell
+cd api-python
+.\build-api.ps1
 
-## 6. Endpoints Principais da API
+cd ..\frontend
+npm run build:desktop
+```
 
-*   **Agendamentos**:
-    *   `GET /api/agendamentos`: Retorna agenda (suporta filtros: `data_inicio`, `data_fim`, `profissional_id`, `status`).
-    *   `POST /api/agendamentos`: Cria um agendamento.
-    *   `PUT /api/agendamentos/:id`: Atualiza dados do agendamento.
-    *   `PATCH /api/agendamentos/:id/status`: Altera apenas o status (ex: confirmar, cancelar).
-*   **Sync Agent**:
-    *   `POST /api/sync/push`: Envia os registros locais com `sync_status = PENDENTE` para a nuvem.
-    *   `GET /api/sync/pull`: Busca os registros na nuvem baseando-se na data do último `updated_at` recebido.
+O Vite gera o frontend em `frontend/dist-app`. O Electron empacota `api-python/dist/agenda-api/agenda-api.exe` em `resources/api/agenda-api.exe` e encerra o processo da API ao fechar o sistema.
 
----
+## Uso em Rede Sem CMD
 
-## 7. Cuidados contra Conflitos de Dados e Integração
+Para acessar pelo navegador em outras maquinas da rede, instale a API como tarefa de inicializacao do Windows no servidor do cliente:
 
-Como existem dois bancos (Local e Nuvem) com estratégias de ID diferentes, os seguintes cuidados são **obrigatórios**:
+```powershell
+.\install-agenda-service.ps1 -InstallDir "C:\Caminho\Da\Pasta\Do\Agenda LMD"
+```
 
-1.  **Mapeamento de IDs (Cross-Reference)**: Como o Firebird usará inteiros para as OSs, a nuvem usará UUIDs. Quando a nuvem cria um agendamento online (UUID xyz), ele desce para o Local. O Local insere a OS, o Firebird gera a OS de número `1540`. O Sync Agent deve retornar à nuvem e atualizar: `UPDATE agendamentos SET id_os_local = 1540 WHERE id = 'xyz'`.
-2.  **Soft Delete / Cancelamento**: **NUNCA** exclua um registro fisicamente (`DELETE`). No Firebird, altere o status da OS para "Cancelado". Isso permite que o Sync Agent avise a nuvem para liberar aquele horário.
-3.  **Prevenção de Duplo Agendamento (Double Booking)**: 
-    *   Ao sincronizar um agendamento da nuvem para o local, o banco local DEVE verificar se não houve uma Ordem de Serviço agendada offline para o mesmo profissional/horário durante a queda de rede.
-    *   Se houver conflito, o agendamento mais recente (ou online) recebe um status especial de `CONFLITO - REVISAR`, alertando o usuário no Módulo Local para reagendar ou cancelar uma das OSs.
+Configure o `.env` com:
 
----
+```env
+HOST=0.0.0.0
+PORT=3001
+FRONTEND_DIST=C:\Caminho\Da\Pasta\Do\Agenda LMD\resources\frontend
+```
 
-## 8. Tecnologias Sugeridas
+Depois acesse:
 
-*   **Backend (Local e Nuvem)**: **Node.js com TypeScript** (usando *Express* ou *NestJS*). O ecossistema Node.js tem ótima performance para APIs, facilidade de implementação de filas/rotinas em background e bibliotecas excelentes (ex: `node-firebird` para o local e `pg` para nuvem).
-*   **Frontend (Local e Nuvem)**: **React com Vite** e **Tailwind CSS**. Garantirá uma estética rica, moderna (efeitos de hover, animações suaves) e a velocidade desejada. Para manipulação do calendário, o uso da biblioteca `FullCalendar` é um padrão de mercado sólido.
-*   **Banco em Nuvem**: **PostgreSQL**. Excelente para multi-tenancy (múltiplos clientes) e tipagem rigorosa.
+```text
+http://IP-DO-SERVIDOR:3001
+```
 
----
+Para remover da inicializacao:
 
-## 9. Sugestão de Telas e Estética (Aesthetics)
-
-Para alcançar o nível de **Rich Aesthetics** desejado:
-1.  **Dashboard de Calendário**: Interface "Glassmorphism" (efeito de vidro translúcido). O calendário ocupará a maior parte da tela.
-    *   Cartões de agendamento com bordas arredondadas e cores suaves baseadas no status.
-    *   Micro-interações ao passar o mouse por cima do agendamento (exibindo um balão flutuante rápido com cliente/telefone).
-2.  **Filtros Laterais**: Um painel esquerdo ou direito retrátil para seleção rápida de profissionais (com avatares circulares) e check-boxes visuais elegantes para filtrar por "Status".
-3.  **Modal de Agendamento**: Ao invés de telas separadas, um *Slide-over* lateral ou Modal centralizado que permite criar o agendamento em 3 cliques, com auto-complete rápido dos dados do cliente.
-4.  **Temas**: Suporte total a **Dark Mode** e **Light Mode**, garantindo uma experiência premium e confortável para profissionais que passam o dia inteiro olhando para o sistema.
+```powershell
+.\uninstall-agenda-service.ps1
+```
