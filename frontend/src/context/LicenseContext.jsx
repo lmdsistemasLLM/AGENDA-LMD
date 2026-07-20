@@ -6,6 +6,10 @@ const STORAGE_KEY = 'agenda-preview-license-session'
 const API_DISCOVERY_TIMEOUT = 5000
 const LICENSE_API_PATH = '/licenses'
 const OFFLINE_TTL_MS = 72 * 60 * 60 * 1000
+const LICENSE_CONFIGURATION_REQUIRED_CODES = new Set([
+  'LICENSE_ENV_NOT_CONFIGURED',
+  'INVALID_ACTIVATION_PAYLOAD',
+])
 const DEFINITIVE_LICENSE_FAILURE_CODES = new Set([
   'CLOCK_TAMPERING_DETECTED',
   'INVALID_LICENSE',
@@ -146,6 +150,7 @@ export function LicenseProvider({ children }) {
   const [licenseError, setLicenseError] = useState(null)
   const [offlineMode, setOfflineMode] = useState(false)
   const [apiUrl, setApiUrl] = useState(null)
+  const [apiError, setApiError] = useState(null)
   const apiUrlRef = useRef(null)
 
   const reloadApiUrl = useCallback(async () => {
@@ -153,11 +158,18 @@ export function LicenseProvider({ children }) {
       const discovered = await discoverApiUrl()
       apiUrlRef.current = discovered
       setApiUrl(discovered)
+      setApiError(null)
       return discovered
     } catch (err) {
       apiUrlRef.current = null
       setApiUrl(null)
-      throw new Error('API discovery failed', { cause: err })
+      const apiDiscoveryError = {
+        message: 'Nao foi possivel encontrar a API local. Verifique se o backend esta rodando.',
+        code: 'API_UNAVAILABLE',
+        cause: err,
+      }
+      setApiError(apiDiscoveryError)
+      throw Object.assign(new Error(apiDiscoveryError.message), apiDiscoveryError)
     }
   }, [])
 
@@ -182,7 +194,13 @@ export function LicenseProvider({ children }) {
     try {
       currentApiUrl = await getApiUrl()
     } catch (err) {
-      throw new Error('Nao foi possivel encontrar a API local. Verifique se o backend esta rodando.', { cause: err })
+      const apiUnavailableError = {
+        message: 'Nao foi possivel encontrar a API local. Verifique se o backend esta rodando.',
+        code: 'API_UNAVAILABLE',
+        cause: err,
+      }
+      setLicenseError({ message: apiUnavailableError.message, code: apiUnavailableError.code })
+      throw Object.assign(new Error(apiUnavailableError.message), apiUnavailableError)
     }
 
     try {
@@ -228,9 +246,16 @@ export function LicenseProvider({ children }) {
       return nextSession
     } catch (err) {
       const backendMessage = err.cause?.response?.data?.error || err.message
-      const backendCode = err.cause?.response?.data?.code || 'LICENSE_BOOTSTRAP_FAILED'
+      const backendCode = err.code || err.cause?.response?.data?.code || 'LICENSE_BOOTSTRAP_FAILED'
       const backendStatus = err.cause?.response?.status
       setLicenseError({ message: backendMessage, code: backendCode })
+
+      if (LICENSE_CONFIGURATION_REQUIRED_CODES.has(backendCode)) {
+        setSession(null)
+        setOfflineMode(false)
+        clearStoredSession()
+        return null
+      }
 
       if (isDefinitiveLicenseFailure(backendCode, backendStatus)) {
         setSession(null)
@@ -310,12 +335,14 @@ export function LicenseProvider({ children }) {
       licenseError,
       offlineMode,
       apiUrl,
+      apiError,
       bootstrapLicense,
       verifySession,
       registerUsage,
       logout,
+      reloadApiUrl,
     }),
-    [isReady, session, licenseError, offlineMode, apiUrl, bootstrapLicense, verifySession, registerUsage, logout],
+    [isReady, session, licenseError, offlineMode, apiUrl, apiError, bootstrapLicense, verifySession, registerUsage, logout, reloadApiUrl],
   )
 
   return <LicenseContext.Provider value={value}>{children}</LicenseContext.Provider>

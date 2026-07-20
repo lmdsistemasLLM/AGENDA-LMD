@@ -1,114 +1,172 @@
-# Agenda LMD
+# Agenda LMD Preview
 
-Agenda LMD e uma aplicacao Electron com frontend React/Vite e API local Python para leitura de agendamentos no Firebird do cliente.
+Aplicacao desktop da **LMD Sistemas** para consulta e acompanhamento de agendamentos, com interface **Electron + React/Vite** e backend local **FastAPI/Python** com suporte a Firebird `x86` e `x64`.
+
+**Versao atual:** `1.1.1`
+
+## Visao geral
+
+O projeto empacota uma interface desktop em Electron que gerencia automaticamente uma API local em Python. Essa API concentra:
+
+- leitura da configuracao local;
+- diagnostico de ambiente Firebird;
+- selecao e validacao de `fbclient.dll`;
+- endpoints REST para a interface;
+- fluxo de licenciamento e cache local.
+
+No modo instalado, o aplicativo usa `%ProgramData%\LMD Sistemas\Agenda LMD Preview` para armazenar configuracoes, cache, logs e backups.
 
 ## Arquitetura
 
 ```text
-Agenda LMD
-├─ frontend
-│  ├─ React/Vite
-│  └─ Electron
-├─ api-python
-│  ├─ FastAPI
-│  ├─ FDB
-│  ├─ Licenciamento
-│  └─ Endpoints REST
-└─ Firebird Cliente
+Agenda LMD Preview
+|- assets/                 # identidade visual oficial
+|- frontend/               # React + Vite + Electron
+|  |- electron/
+|  |- public/
+|  `- src/
+|- api-python/             # FastAPI, Firebird, licenciamento
+|  `- routes/
+|- installer/              # Inno Setup e scripts de empacotamento
+`- dist/                   # artefatos gerados (ignorado no Git)
 ```
 
-O frontend continua consumindo os mesmos endpoints em `http://localhost:3001/api`.
+### Componentes principais
 
-## Endpoints
+- **Frontend:** React 19 + Vite
+- **Desktop shell:** Electron
+- **Backend local:** FastAPI + Uvicorn
+- **Acesso Firebird:** `fdb` e `firebird-driver`
+- **Empacotamento:** `electron-builder` e Inno Setup
 
-- `GET /api/health`
-- `GET /api/agendamentos`
-- `GET /api/agendamentos/{id}`
-- `POST /api/licenses/activate`
-- `POST /api/licenses/verify-token`
-- `GET /api/licenses/{licenseKey}/status`
-- `POST /api/licenses/{licenseId}/usage`
+## Requisitos de desenvolvimento
 
-## Banco Firebird
+- Windows 10 ou superior
+- Node.js 20+ com `npm`
+- Python 3.11+ para desenvolvimento local
+- Python `x86` e `x64` quando for necessario gerar ambos os executaveis do backend
+- Inno Setup 6 para gerar o instalador final
 
-A API Python le as variaveis abaixo:
+## Configuracao de ambiente
+
+Use o arquivo `.env.example` como base. Um espelho tambem existe em `api-python/.env.example`.
+
+Exemplo resumido:
 
 ```env
+HOST=127.0.0.1
+PORT=3001
+
 FB_HOST=127.0.0.1
 FB_PORT=3050
-FB_DATABASE=C:\caminho\para\DADOS.FDB
+FB_DATABASE=C:\CAMINHO\BANCO.FDB
 FB_USER=SYSDBA
-FB_PASSWORD=masterkey
-FBCLIENT_PATH=C:\Program Files\Firebird\Firebird_3_0\fbclient.dll
-```
+FB_PASSWORD=CHANGE_ME
+FB_CHARSET=UTF8
+FBCLIENT_PATH=C:\CAMINHO\FIREBIRD\fbclient.dll
+FIREBIRD_ARCH=AUTO
+FIREBIRD_PROVIDER=AUTO
+FIREBIRD_CONNECTION_MODE=AUTO
 
-`FBCLIENT_PATH` e opcional e permite selecionar explicitamente o `fbclient.dll` adequado ao ambiente.
-
-## Licenciamento
-
-As variaveis permanecem compativeis:
-
-```env
-JWT_SECRET=
-LICENSE_API_URL=https://lmdsistemasdev.qzz.io/api
-LICENSE_API_KEY=
+JWT_SECRET=CHANGE_ME_WITH_A_LONG_RANDOM_SECRET
+LICENSE_API_URL=
 PROJECT_SLUG=agenda-lmd-preview
+LICENSE_PROJECT_SLUG=agenda-lmd-preview
+LICENSE_KEY=
+LICENSE_CNPJ=
+APP_LOGIN_USER=admin
+APP_LOGIN_PASSWORD=CHANGE_ME
 ```
 
-O cache local e gravado em `%APPDATA%\Agenda LMD`:
+## Identidade visual
 
-- `.license-cache.json`
-- `.usage-cache.json`
+Os arquivos oficiais da marca ficam em:
 
-## Desenvolvimento
+- `assets/icon.ico`
+- `assets/logo.png`
+
+O comando `npm run sync:branding` sincroniza os recursos derivados usados pelo frontend e pelo instalador.
+
+## Comandos principais
+
+### Instalar dependencias do frontend
+
+```powershell
+cd frontend
+npm install
+```
+
+### Instalar dependencias do backend
 
 ```powershell
 cd api-python
 python -m pip install -r requirements.txt
+```
 
-cd ..\frontend
-npm install
+### Executar em desenvolvimento
+
+```powershell
+cd frontend
 npm run dev:desktop
 ```
 
-Em desenvolvimento, o Electron inicia `python -m uvicorn main:app --host 127.0.0.1 --port 3001`.
+### Gerar build web do frontend
 
-## Build
+```powershell
+cd frontend
+npm run build
+```
+
+### Validar lint e sintaxe do Electron
+
+```powershell
+cd frontend
+npx eslint src electron
+node --check electron/main.cjs
+```
+
+### Compilar os backends `x86` e `x64`
+
+Build individual:
 
 ```powershell
 cd api-python
 .\build-api.ps1
-
-cd ..\frontend
-npm run build:desktop
 ```
 
-O Vite gera o frontend em `frontend/dist-app`. O Electron empacota `api-python/dist/agenda-api/agenda-api.exe` em `resources/api/agenda-api.exe` e encerra o processo da API ao fechar o sistema.
-
-## Uso em Rede Sem CMD
-
-Para acessar pelo navegador em outras maquinas da rede, instale a API como tarefa de inicializacao do Windows no servidor do cliente:
+Pipeline completo do instalador, incluindo backend dual:
 
 ```powershell
-.\install-agenda-service.ps1 -InstallDir "C:\Caminho\Da\Pasta\Do\Agenda LMD"
+cd installer
+.\Build-Installer.ps1 -AppVersion 1.1.1
 ```
 
-Configure o `.env` com:
-
-```env
-HOST=0.0.0.0
-PORT=3001
-FRONTEND_DIST=C:\Caminho\Da\Pasta\Do\Agenda LMD\resources\frontend
-```
-
-Depois acesse:
-
-```text
-http://IP-DO-SERVIDOR:3001
-```
-
-Para remover da inicializacao:
+### Gerar pasta desktop `win-unpacked`
 
 ```powershell
-.\uninstall-agenda-service.ps1
+cd frontend
+npm run build:desktop:dir
 ```
+
+### Gerar o instalador
+
+```powershell
+cd installer
+.\Build-Installer.ps1 -AppVersion 1.1.1
+```
+
+## Instalacao basica
+
+1. Gere ou obtenha o instalador final da versao desejada.
+2. Execute o instalador no Windows.
+3. Abra o **Agenda LMD Preview**.
+4. Na primeira execucao, preencha a configuracao do Firebird.
+5. Salve e teste a conexao pela propria interface.
+6. Ajuste licenca e credenciais locais quando necessario.
+
+## Observacoes importantes
+
+- DLLs do Firebird, bancos `.fdb`, credenciais reais, `.env`, logs e executaveis compilados **nao sao versionados**.
+- A pasta `dist/` contem apenas artefatos gerados e permanece fora do Git.
+- A configuracao de licenciamento deve ser definida por ambiente; o repositorio nao publica endpoint padrao nem chaves reais.
+- Os scripts em `installer/` e os utilitarios raiz foram mantidos para build e distribuicao, sem incluir saidas compiladas.

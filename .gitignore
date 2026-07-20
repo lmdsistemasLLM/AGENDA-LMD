@@ -1,13 +1,86 @@
+# Node / Electron
 node_modules/
-dist/
-dist-app/
-dist-electron/
-build/
-backend/
-.env
-*.log
+frontend/node_modules/
+frontend/dist/
+frontend/dist-app/
+frontend/dist-electron/
+frontend/release/
+frontend/out/
+frontend/.vite/
 .vite/
 .cache/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
 __pycache__/
-*.pyc
-frontend/dist-electron/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+.venv-x86/
+.venv-x64/
+venv/
+env/
+pip-wheel-metadata/
+build/
+api-python/build/
+api-python/dist/
+
+# Ambientes e configuracoes sensiveis
+.env
+.env.*
+!.env.example
+*.local
+runtime-config.json
+settings.json
+config.local.json
+
+# Banco de dados e dados locais
+*.db
+*.sqlite
+*.sqlite3
+data/
+logs/
+backups/
+temp/
+tmp/
+
+# Instaladores e artefatos gerados
+dist/
+installer-stage/
+*.exe
+*.msi
+*.sha256
+*.zip
+*.7z
+*.rar
+
+# Firebird e DLLs locais
+fbclient.dll
+*.fdb
+*.gdb
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Testes e cobertura
+coverage/
+.pytest_cache/
+.mypy_cache/
+.eslintcache

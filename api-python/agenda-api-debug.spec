@@ -1,12 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
+
+from PyInstaller.utils.hooks import collect_submodules
+
+app_name = os.getenv("AGENDA_API_NAME", "agenda-api-debug")
+hiddenimports = ["fdb.fbcore", *collect_submodules("firebird")]
+
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=[],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -21,7 +28,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='agenda-api-debug',
+    name=app_name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -40,5 +47,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='agenda-api-debug',
+    name=app_name,
 )

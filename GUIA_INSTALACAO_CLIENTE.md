@@ -1,87 +1,109 @@
-# AGENDA LMD - GUIA DE INSTALACAO (Cliente)
+# AGENDA LMD PREVIEW - GUIA DE INSTALACAO
 
 ## Pre-requisitos
-- Windows 10 ou superior.
-- Firebird instalado no ambiente do cliente.
-- O usuario final nao precisa instalar Node.js nem Python.
 
-## Instalacao Rapida
+- Windows 10 ou superior
+- Firebird acessivel no ambiente do cliente
+- `fbclient.dll` compativel com a arquitetura do backend utilizado
+- Permissao para instalar o aplicativo e gravar configuracoes em `%ProgramData%`
 
-1. Execute `Agenda LMD.exe`.
-2. Mantenha o arquivo `.env` na mesma pasta do executavel.
-3. A API local `agenda-api.exe` sera iniciada automaticamente pelo Electron na porta `3001`.
+## Fluxo recomendado
 
-## Acesso pela Rede sem CMD
+1. Execute o instalador do Agenda LMD Preview.
+2. Abra o aplicativo normalmente, sem depender de PowerShell ou CMD visivel.
+3. Na primeira execucao, preencha os dados de conexao do Firebird.
+4. Use a tela de diagnostico para localizar ou validar a `fbclient.dll`.
+5. Salve a configuracao.
+6. O backend sera reiniciado automaticamente e a interface seguira para a tela principal.
 
-No servidor do cliente, instale a API para iniciar com o Windows:
+## Variaveis principais do `.env`
 
-```powershell
-.\install-agenda-service.ps1 -InstallDir "C:\Caminho\Da\Pasta\Do\Agenda LMD"
+```env
+HOST=127.0.0.1
+PORT=3001
+FRONTEND_DIST=
+
+FB_HOST=127.0.0.1
+FB_PORT=3050
+FB_DATABASE=C:\CAMINHO\BANCO.FDB
+FB_USER=SYSDBA
+FB_PASSWORD=CHANGE_ME
+FB_CHARSET=UTF8
+FBCLIENT_PATH=C:\CAMINHO\FIREBIRD\fbclient.dll
+FIREBIRD_ARCH=AUTO
+FIREBIRD_PROVIDER=AUTO
+FIREBIRD_CONNECTION_MODE=AUTO
 ```
 
-No `.env`, use:
+## Valores aceitos
+
+`FIREBIRD_ARCH`:
+
+- `AUTO`
+- `X86`
+- `X64`
+
+`FIREBIRD_PROVIDER`:
+
+- `AUTO`
+- `FDB`
+- `FIREBIRD_DRIVER`
+
+## Diagnostico
+
+O aplicativo e a API retornam informacoes como:
+
+- arquitetura do sistema operacional e do processo;
+- runtime do Python em uso;
+- provider solicitado e provider selecionado;
+- caminho, arquitetura e versao da `fbclient.dll`;
+- host, porta, banco, charset e modo de conexao;
+- ultimo erro conhecido de conexao.
+
+Senhas nao sao exibidas no painel nem nos logs.
+
+## Uso em rede
+
+Se a API precisar iniciar com o Windows em um servidor interno:
+
+```powershell
+.\install-agenda-service.ps1 -InstallDir "C:\CAMINHO\INSTALACAO\Agenda LMD Preview"
+```
+
+Exemplo de parametros de rede:
 
 ```env
 HOST=0.0.0.0
 PORT=3001
-FRONTEND_DIST=C:\Caminho\Da\Pasta\Do\Agenda LMD\resources\frontend
+FRONTEND_DIST=C:\CAMINHO\INSTALACAO\Agenda LMD Preview\resources\frontend
 ```
 
-Depois acesse em qualquer computador da rede:
+Depois acesse:
 
 ```text
 http://IP-DO-SERVIDOR:3001
 ```
 
-## Configuracao do Banco
+## Atualizacao e rollback
 
-Configure o arquivo `.env`:
+- Atualizacoes podem gerar backup da versao anterior em `%ProgramData%\LMD Sistemas\Agenda LMD Preview\rollback`
+- A configuracao do backend permanece fora da pasta do aplicativo
+- O rollback pode ser executado com:
 
-```env
-FB_HOST=127.0.0.1
-FB_PORT=3050
-FB_DATABASE=C:\caminho\para\DADOS.FDB
-FB_USER=SYSDBA
-FB_PASSWORD=masterkey
-FBCLIENT_PATH=C:\Program Files\Firebird\Firebird_3_0\fbclient.dll
-HOST=0.0.0.0
-PORT=3001
-FRONTEND_DIST=C:\Caminho\Da\Pasta\Do\Agenda LMD\resources\frontend
+```powershell
+.\installer\Rollback-AgendaLMD.ps1 -InstallDir "C:\CAMINHO\INSTALACAO\Agenda LMD Preview" -DataDir "$env:ProgramData\LMD Sistemas\Agenda LMD Preview"
 ```
 
-`FBCLIENT_PATH` e opcional, mas recomendado quando o cliente possui mais de uma versao do Firebird instalada.
+## Logs
 
-## Licenciamento
+Os logs do instalador e dos utilitarios ficam em:
 
-As variaveis abaixo permanecem no `.env`:
-
-```env
-JWT_SECRET=
-LICENSE_API_URL=https://lmdsistemasdev.qzz.io/api
-LICENSE_API_KEY=
-PROJECT_SLUG=agenda-lmd-preview
+```text
+%ProgramData%\LMD Sistemas\Agenda LMD Preview\logs\installer
 ```
-
-O cache local fica em `%APPDATA%\Agenda LMD`:
-
-- `.license-cache.json`
-- `.usage-cache.json`
-
-## Troubleshooting
-
-### Porta 3001 em uso
-Feche outra instancia do Agenda LMD ou finalize o processo `agenda-api.exe`.
-
-### App nao conecta com a API
-Verifique se `agenda-api.exe` existe em `resources\api\agenda-api.exe` no pacote gerado.
-
-### Erro de conexao Firebird
-Confirme `FB_HOST`, `FB_PORT`, `FB_DATABASE`, usuario/senha e, se necessario, a versao correta do `fbclient.dll`.
 
 ## Suporte
-- Email: contato@lmd.com.br
-- Telefone: (xx) xxxx-xxxx
 
----
-**Versao**: 1.0.0  
-**Data**: 2026-05-29
+- Empresa: LMD Sistemas
+- Produto: Agenda LMD Preview
+- Versao: 1.1.1

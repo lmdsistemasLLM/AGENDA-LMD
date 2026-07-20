@@ -1,4 +1,7 @@
+import argparse
+import json
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -7,16 +10,38 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from config_store import candidate_env_paths
+from firebird_configuration import (
+    apply_runtime_overrides,
+    load_json_payload,
+    save_env_configuration,
+    save_runtime_selection,
+)
+from firebird_support import FirebirdConfigurationError, diagnostics_snapshot, test_connection
+
+
+def _parse_cli_args():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--env-file")
+    parser.add_argument("--apply-firebird-config")
+    parser.add_argument("--persist-firebird-env", action="store_true")
+    parser.add_argument("--persist-firebird-runtime", action="store_true")
+    parser.add_argument("--print-firebird-diagnostics", action="store_true")
+    parser.add_argument("--test-firebird-connection", action="store_true")
+    parser.add_argument("--json", action="store_true")
+    return parser.parse_known_args()
+
+
+CLI_ARGS, CLI_REMAINDER = _parse_cli_args()
+if CLI_ARGS.env_file:
+    os.environ["AGENDA_ENV_PATH"] = str(Path(CLI_ARGS.env_file).resolve())
+if (CLI_ARGS.print_firebird_diagnostics or CLI_ARGS.test_firebird_connection) and not os.getenv("JWT_SECRET"):
+    os.environ["JWT_SECRET"] = "AGENDA_LMD_DIAGNOSTIC_ONLY_SECRET"
+
 
 def _load_environment() -> None:
-    candidates = [
-        Path.cwd() / ".env",
-        Path(__file__).resolve().parent / ".env",
-        Path(__file__).resolve().parent.parent / "backend" / ".env",
-        Path(os.getenv("APPDATA", "")) / "Agenda LMD" / ".env" if os.getenv("APPDATA") else None,
-    ]
-    for candidate in candidates:
-        if candidate and candidate.exists():
+    for candidate in candidate_env_paths():
+        if candidate.exists():
             load_dotenv(candidate)
             return
     load_dotenv()
@@ -24,9 +49,23 @@ def _load_environment() -> None:
 
 _load_environment()
 
+
+def _apply_cli_configuration() -> dict:
+    if not CLI_ARGS.apply_firebird_config:
+        return {}
+
+    payload = load_json_payload(CLI_ARGS.apply_firebird_config)
+    apply_runtime_overrides(payload)
+    return payload
+
+
+CLI_FIREBIRD_PAYLOAD = _apply_cli_configuration()
+
 from routes.auth import router as auth_router  # noqa: E402
+from routes.diagnostics import router as diagnostics_router  # noqa: E402
 from routes.agendamentos import router as agendamentos_router  # noqa: E402
 from routes.licenses import router as licenses_router  # noqa: E402
+from routes.settings import router as settings_router  # noqa: E402
 
 
 app = FastAPI(title="Agenda LMD API Local")
@@ -48,11 +87,21 @@ app.add_middleware(
 app.include_router(licenses_router)
 app.include_router(auth_router)
 app.include_router(agendamentos_router)
+app.include_router(diagnostics_router)
+app.include_router(settings_router)
 
 
 @app.get("/api/health")
 def health():
-    return {"ok": True}
+    diagnostics = diagnostics_snapshot()
+    return {
+        "ok": True,
+        "validationStatus": diagnostics.get("validationStatus"),
+        "processArchitecture": diagnostics.get("processArchitecture"),
+        "providerRequested": diagnostics.get("providerRequested"),
+        "providerSelected": diagnostics.get("providerSelected"),
+        "clientPath": diagnostics.get("clientPath"),
+    }
 
 
 @app.exception_handler(HTTPException)
@@ -118,6 +167,51 @@ if frontend_dist:
 
 if __name__ == "__main__":
     import uvicorn
+
+    runtime_path = None
+    env_path = None
+    if CLI_FIREBIRD_PAYLOAD and CLI_ARGS.persist_firebird_runtime:
+        runtime_path = save_runtime_selection(CLI_FIREBIRD_PAYLOAD)
+    if CLI_FIREBIRD_PAYLOAD and CLI_ARGS.persist_firebird_env:
+        env_path = save_env_configuration(CLI_FIREBIRD_PAYLOAD)
+
+    if CLI_ARGS.print_firebird_diagnostics:
+        payload = diagnostics_snapshot()
+        if runtime_path:
+            payload["runtimeConfigPath"] = runtime_path
+        if env_path:
+            payload["envPath"] = env_path
+        print(json.dumps(payload, ensure_ascii=True, indent=2) if CLI_ARGS.json else payload)
+        sys.exit(0)
+
+    if CLI_ARGS.test_firebird_connection:
+        try:
+            payload = test_connection()
+            if runtime_path:
+                payload["runtimeConfigPath"] = runtime_path
+            if env_path:
+                payload["envPath"] = env_path
+            print(json.dumps(payload, ensure_ascii=True, indent=2) if CLI_ARGS.json else payload)
+            sys.exit(0)
+        except FirebirdConfigurationError as exc:
+            payload = exc.diagnostics or {"error": str(exc)}
+            payload.setdefault("error", str(exc))
+            if runtime_path:
+                payload["runtimeConfigPath"] = runtime_path
+            if env_path:
+                payload["envPath"] = env_path
+            print(json.dumps(payload, ensure_ascii=True, indent=2) if CLI_ARGS.json else payload)
+            sys.exit(1)
+
+    if CLI_FIREBIRD_PAYLOAD and (CLI_ARGS.persist_firebird_runtime or CLI_ARGS.persist_firebird_env):
+        payload = {
+            "ok": True,
+            "runtimeConfigPath": runtime_path,
+            "envPath": env_path,
+            "diagnostics": diagnostics_snapshot(),
+        }
+        print(json.dumps(payload, ensure_ascii=True, indent=2) if CLI_ARGS.json else payload)
+        sys.exit(0)
 
     host = os.getenv("HOST", "127.0.0.1")
     port = int(os.getenv("PORT", "3001"))

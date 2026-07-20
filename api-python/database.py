@@ -2,105 +2,120 @@ import datetime as dt
 import os
 import time
 from pathlib import Path
+from typing import Any
 
-import fdb
+from firebird_support import (
+    FirebirdConfigurationError,
+    clear_last_error,
+    current_settings,
+    open_connection,
+    remember_last_error,
+    write_runtime_log,
+)
 
 
-DEFAULT_DATABASE = r"C:\DATAGOO CLIENTES\Clientes Firebird 3\Dados\pet\DADOS.FDB"
 QUERY_TIMEOUT_SECONDS = int(os.getenv("FB_QUERY_TIMEOUT", "45"))
-_FBCLIENT_LOADED = False
 
 
 def _log_debug(message: str) -> None:
-    try:
-        log_path = Path(os.getenv("APPDATA", str(Path.home()))) / "Agenda LMD" / "agenda_debug.log"
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
-        log_path.write_text("", encoding="utf-8") if not log_path.exists() else None
-        with log_path.open("a", encoding="utf-8") as log_file:
-            log_file.write(f"[{timestamp}] {message}\n")
-    except Exception as exc:
-        print(f"Falha ao escrever log: {exc}")
+    write_runtime_log("agenda-debug", message)
 
 
-def _load_fbclient() -> None:
-    global _FBCLIENT_LOADED
-    if _FBCLIENT_LOADED:
-        return
-    fbclient_path = os.getenv("FBCLIENT_PATH") or os.getenv("FB_CLIENT_LIBRARY")
-    if not fbclient_path:
-        return
-
-    if not Path(fbclient_path).exists():
-        raise RuntimeError(f"fbclient.dll nao encontrado em: {fbclient_path}")
-
-    fdb.load_api(fbclient_path)
-    _FBCLIENT_LOADED = True
-
-
-def _connection_options() -> dict:
-    return {
-        "host": os.getenv("FB_HOST", "127.0.0.1"),
-        "port": int(os.getenv("FB_PORT", "3050")),
-        "database": os.getenv("FB_DATABASE", DEFAULT_DATABASE),
-        "user": os.getenv("FB_USER", "SYSDBA"),
-        "password": os.getenv("FB_PASSWORD", "masterkey"),
-        "charset": os.getenv("FB_CHARSET", "UTF8"),
-    }
-
-
-def _validate_local_database(options: dict) -> None:
+def _validate_local_database(options: dict[str, Any]) -> None:
     host = str(options["host"]).lower()
     database = str(options["database"])
     if host in {"127.0.0.1", "localhost"} and len(database) > 2 and database[1:3] == ":\\":
         if not Path(database).exists():
-            _log_debug(f"ERRO: Banco de dados nao existe no caminho: {database}")
-            raise RuntimeError(
+            raise FirebirdConfigurationError(
                 f'O banco de dados nao foi encontrado no caminho especificado: "{database}". '
-                "Verifique o arquivo .env no computador do cliente."
+                "Verifique o arquivo .env no computador do cliente.",
+                diagnostics={
+                    "host": options["host"],
+                    "database": options["database"],
+                    "connectionMode": "LOCAL_PATH",
+                },
             )
+
+
+def _format_failure_message(exc: Exception, elapsed: float, diagnostics: dict[str, Any] | None = None) -> str:
+    details = diagnostics or {}
+
+    if isinstance(exc, FirebirdConfigurationError):
+        return str(exc)
+
+    if elapsed >= QUERY_TIMEOUT_SECONDS:
+        return (
+            f"O Firebird nao respondeu em {QUERY_TIMEOUT_SECONDS} segundos na porta {details.get('port') or current_settings()['port']}. "
+            "O banco pode estar muito pesado, o host pode estar incorreto ou o provider selecionado nao conseguiu concluir a conexao."
+        )
+
+    parts = [
+        f"Falha ao conectar no Firebird: {exc}.",
+    ]
+
+    provider = details.get("providerSelected") or details.get("providerRequested")
+    client_path = details.get("clientPath")
+    process_arch = details.get("processArchitecture")
+    client_arch = details.get("clientArchitecture")
+
+    if provider:
+        parts.append(f"Provider: {provider}.")
+    if client_path:
+        parts.append(f"DLL selecionada: {client_path}.")
+    if process_arch or client_arch:
+        parts.append(
+            f"Arquitetura processo/DLL: {process_arch or 'desconhecida'} / {client_arch or 'desconhecida'}."
+        )
+
+    parts.append(
+        "Verifique host, porta, caminho do banco, usuario/senha, charset e se a fbclient.dll escolhida e compativel com o processo."
+    )
+    return " ".join(parts)
 
 
 def query_database(sql: str, params: list | tuple | None = None) -> list[dict]:
     params = params or []
-    _load_fbclient()
-    options = _connection_options()
+    options = current_settings()
     _validate_local_database(options)
 
     _log_debug(f"Iniciando query. Host: {options['host']}, Database: {options['database']}")
     started_at = time.time()
-    con = None
+    connection = None
+    diagnostics: dict[str, Any] = {}
 
     try:
-        con = fdb.connect(**options)
+        connection, provider_info, diagnostics = open_connection()
         connect_duration = time.time() - started_at
-        _log_debug(f"Conectado com sucesso ao Firebird em {connect_duration:.2f}s. Executando query...")
+        diagnostics["port"] = options["port"]
+        diagnostics["host"] = options["host"]
+        diagnostics["database"] = options["database"]
+        diagnostics["charset"] = options["charset"]
+        diagnostics["providerSelected"] = provider_info["provider"]
+        _log_debug(
+            f"Conectado com sucesso ao Firebird em {connect_duration:.2f}s. "
+            f"Provider: {provider_info['provider']}."
+        )
 
-        cursor = con.cursor()
+        cursor = connection.cursor()
         query_started_at = time.time()
         cursor.execute(sql, params)
-        columns = [column[0].upper() for column in cursor.description]
+        columns = [str(column[0]).upper() for column in cursor.description]
         rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
         query_duration = time.time() - query_started_at
-        _log_debug(f"Query executada com sucesso em {query_duration:.2f}s. Registros retornados: {len(rows)}")
+        _log_debug(
+            f"Query executada com sucesso em {query_duration:.2f}s. Registros retornados: {len(rows)}"
+        )
+        clear_last_error()
         return rows
     except Exception as exc:
         elapsed = time.time() - started_at
-        if elapsed >= QUERY_TIMEOUT_SECONDS:
-            message = (
-                f"O Firebird nao respondeu em {QUERY_TIMEOUT_SECONDS} segundos na porta {options['port']}. "
-                "O banco pode estar muito pesado ou o IP pode estar incorreto."
-            )
-        else:
-            message = (
-                f"Falha ao conectar no Firebird: {exc}. "
-                "Verifique se o servico do Firebird esta rodando e se a senha/usuario estao corretos."
-            )
-        _log_debug(f"ERRO de banco apos {elapsed:.2f}s: {exc}")
+        message = _format_failure_message(exc, elapsed, diagnostics or getattr(exc, "diagnostics", None))
+        remember_last_error(message, diagnostics or getattr(exc, "diagnostics", None))
+        _log_debug(f"ERRO de banco apos {elapsed:.2f}s: {message}")
         raise RuntimeError(message) from exc
     finally:
-        if con is not None:
-            con.close()
+        if connection is not None:
+            connection.close()
 
 
 def _relation_fields(relation_name: str) -> set[str]:

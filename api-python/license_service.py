@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 PROJECT_SLUG = os.getenv("PROJECT_SLUG", "agenda-lmd-preview")
-LICENSE_API_URL = os.getenv("LICENSE_API_URL", "https://lmdsistemasdev.qzz.io/api").rstrip("/")
+LICENSE_API_URL = os.getenv("LICENSE_API_URL", "").rstrip("/")
 LICENSE_API_KEY = os.getenv("LICENSE_API_KEY")
 LICENSE_API_TIMEOUT = int(os.getenv("LICENSE_API_TIMEOUT", "10000")) / 1000
 ENCRYPTION_SECRET = os.getenv("DATA_ENCRYPTION_KEY") or os.getenv("JWT_SECRET")
