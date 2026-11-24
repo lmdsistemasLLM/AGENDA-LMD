@@ -61,6 +61,30 @@ def _parse_datetime(date_value: Any, time_value: Any, is_end: bool = False) -> s
     return result.isoformat()
 
 
+DEFAULT_EVENT_DURATION = dt.timedelta(minutes=30)
+
+
+def _end_time(value: Any) -> dt.time | None:
+    """Hora de termino valida; 00:00 e tratado como nao preenchido (campo zerado no retaguarda)."""
+    time_part = _time_part(value)
+    if not time_part or (time_part.hour == 0 and time_part.minute == 0):
+        return None
+    return time_part
+
+
+def _event_end(start_iso: str | None, end_date: dt.date | None, end_value: Any) -> str | None:
+    if not start_iso:
+        return None
+    start = dt.datetime.fromisoformat(start_iso)
+    end_time = _end_time(end_value)
+    if not end_time or not end_date:
+        return (start + DEFAULT_EVENT_DURATION).isoformat()
+    end = dt.datetime.combine(end_date, end_time) + DEFAULT_EVENT_DURATION
+    if end <= start:
+        end = start + DEFAULT_EVENT_DURATION
+    return end.isoformat()
+
+
 def _format_original_time(value: Any) -> str | None:
     time_part = _time_part(value)
     if not time_part:
@@ -137,7 +161,7 @@ def _build_event(os_row: dict, occurrence_date: dt.date | None = None, is_recurr
     animal = _parse_string(os_row.get("ANIMAL")) or "Indefinido"
     field_mapping = _map_fields_by_labels(os_row)
     hora_inicio = _format_original_time(os_row.get("HORA_DO_AGENDAMENTO")) or ""
-    hora_fim = _format_original_time(os_row.get("HORA_TERMINO"))
+    hora_fim = _format_original_time(_end_time(os_row.get("HORA_TERMINO")))
     data_inicio = occurrence_date or _date_part(os_row.get("DATA_AGENDAMENTO"))
     end_date = data_inicio if is_recurring else (_date_part(os_row.get("DATA_ENTREGA")) or data_inicio)
 
@@ -152,11 +176,13 @@ def _build_event(os_row: dict, occurrence_date: dt.date | None = None, is_recurr
     if is_recurring:
         custom_fields.append({"label": "Recorrencia", "value": "Mensal"})
 
+    start_iso = _parse_datetime(data_inicio, os_row.get("HORA_DO_AGENDAMENTO"))
+
     return {
         "id": event_id,
         "title": f"{animal} ({cliente})",
-        "start": _parse_datetime(data_inicio, os_row.get("HORA_DO_AGENDAMENTO")),
-        "end": _parse_datetime(end_date, os_row.get("HORA_TERMINO"), True),
+        "start": start_iso,
+        "end": _event_end(start_iso, end_date, os_row.get("HORA_TERMINO")),
         "extendedProps": {
             "detailId": base_id,
             "originalId": base_id,
