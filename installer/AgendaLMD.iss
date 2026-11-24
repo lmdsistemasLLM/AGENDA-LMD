@@ -189,13 +189,13 @@ begin
   DbPage.Add('Caminho completo do banco (.FDB) no servidor:', False);
   DbPage.Add('Usuario:', False);
   DbPage.Add('Senha:', True);
-  DbPage.Add('Charset:', False);
+  DbPage.Add('Charset (AUTO detecta pelo banco; ex.: WIN1252, UTF8):', False);
   DbPage.Values[0] := Prefill('FB_HOST', '127.0.0.1');
   DbPage.Values[1] := Prefill('FB_PORT', '3050');
   DbPage.Values[2] := Prefill('FB_DATABASE', '');
   DbPage.Values[3] := Prefill('FB_USER', 'SYSDBA');
   DbPage.Values[4] := Prefill('FB_PASSWORD', '');
-  DbPage.Values[5] := Prefill('FB_CHARSET', 'UTF8');
+  DbPage.Values[5] := Prefill('FB_CHARSET', 'AUTO');
 
   FbClientPage := CreateInputFilePage(DbPage.ID,
     'Cliente Firebird',

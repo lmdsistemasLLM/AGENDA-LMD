@@ -379,7 +379,7 @@ function Add-ComboControl {
 
 $hostBox = Add-LabeledControl -LabelText "Host do Firebird" -X 20 -Y 98 -Width 250 -DefaultValue ($(if ($existingEnv["FB_HOST"]) { $existingEnv["FB_HOST"] } else { "127.0.0.1" }))
 $portBox = Add-LabeledControl -LabelText "Porta do Firebird" -X 290 -Y 98 -Width 120 -DefaultValue ($(if ($existingEnv["FB_PORT"]) { $existingEnv["FB_PORT"] } else { "3050" }))
-$charsetBox = Add-LabeledControl -LabelText "Charset" -X 430 -Y 98 -Width 160 -DefaultValue ($(if ($existingEnv["FB_CHARSET"]) { $existingEnv["FB_CHARSET"] } else { "UTF8" }))
+$charsetBox = Add-LabeledControl -LabelText "Charset" -X 430 -Y 98 -Width 160 -DefaultValue ($(if ($existingEnv["FB_CHARSET"]) { $existingEnv["FB_CHARSET"] } else { "AUTO" }))
 $modeBox = Add-ComboControl -LabelText "Modo de conexao" -X 610 -Y 98 -Width 230 -Items @("AUTO", "LOCAL_PATH", "LOCAL_ALIAS", "REMOTE") -DefaultValue ($(if ($existingEnv["FIREBIRD_CONNECTION_MODE"]) { $existingEnv["FIREBIRD_CONNECTION_MODE"] } else { "AUTO" }))
 
 $databaseBox = Add-LabeledControl -LabelText "Banco (caminho ou alias)" -X 20 -Y 168 -Width 820 -DefaultValue $existingEnv["FB_DATABASE"]

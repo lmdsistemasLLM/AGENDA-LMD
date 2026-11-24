@@ -89,7 +89,7 @@ def query_database(sql: str, params: list | tuple | None = None) -> list[dict]:
         diagnostics["port"] = options["port"]
         diagnostics["host"] = options["host"]
         diagnostics["database"] = options["database"]
-        diagnostics["charset"] = options["charset"]
+        diagnostics["charset"] = provider_info.get("charsetResolved") or options["charset"]
         diagnostics["providerSelected"] = provider_info["provider"]
         _log_debug(
             f"Conectado com sucesso ao Firebird em {connect_duration:.2f}s. "
