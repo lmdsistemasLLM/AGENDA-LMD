@@ -221,6 +221,20 @@ begin
   LicensePage.Values[3] := Prefill('LICENSE_API_KEY', '');
 end;
 
+function LicensePageOk(): Boolean;
+var
+  Url: String;
+begin
+  Result := True;
+  Url := Lowercase(Trim(LicensePage.Values[0]));
+  if (Url <> '') and (Copy(Url, 1, 7) <> 'http://') and (Copy(Url, 1, 8) <> 'https://') then
+  begin
+    MsgBox('O endereco da API de licenca deve comecar com http:// ou https://.' + #13#10 +
+      'Se voce tem um token (ex.: cl_...), coloque-o no campo Token da API de licenca.', mbError, MB_OK);
+    Result := False;
+  end;
+end;
+
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
@@ -251,20 +265,6 @@ begin
       Result := False;
       Exit;
     end;
-  end;
-end;
-
-function LicensePageOk(): Boolean;
-var
-  Url: String;
-begin
-  Result := True;
-  Url := Lowercase(Trim(LicensePage.Values[0]));
-  if (Url <> '') and (Copy(Url, 1, 7) <> 'http://') and (Copy(Url, 1, 8) <> 'https://') then
-  begin
-    MsgBox('O endereco da API de licenca deve comecar com http:// ou https://.' + #13#10 +
-      'Se voce tem um token (ex.: cl_...), coloque-o no campo Token da API de licenca.', mbError, MB_OK);
-    Result := False;
   end;
 end;
 
