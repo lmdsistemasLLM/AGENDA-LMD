@@ -426,7 +426,8 @@ New-Item -ItemType Directory -Path $stageDocsDir -Force | Out-Null
 $installerRuntimeScripts = @(
     "Backup-AgendaLMD.ps1",
     "Rollback-AgendaLMD.ps1",
-    "Uninstall-AgendaLMD.ps1"
+    "Uninstall-AgendaLMD.ps1",
+    "Write-AgendaEnv.ps1"
 )
 foreach ($scriptName in $installerRuntimeScripts) {
     $scriptPath = Join-Path $PSScriptRoot $scriptName

@@ -10,11 +10,15 @@
 ## Fluxo recomendado
 
 1. Execute o instalador do Agenda LMD Preview.
-2. Abra o aplicativo normalmente, sem depender de PowerShell ou CMD visivel.
-3. Na primeira execucao, preencha os dados de conexao do Firebird.
-4. Use a tela de diagnostico para localizar ou validar a `fbclient.dll`.
-5. Salve a configuracao.
-6. O backend sera reiniciado automaticamente e a interface seguira para a tela principal.
+2. Nas telas do assistente, informe:
+   - **Banco de dados Firebird:** servidor, porta, caminho completo do `.FDB`, usuario, senha e charset.
+   - **Cliente Firebird:** a `fbclient.dll` (o instalador tenta detectar automaticamente).
+   - **Licenca:** endereco da API, chave e CNPJ do cliente.
+3. O instalador grava esses dados em `%ProgramData%\LMD Sistemas\Agenda LMD Preview\.env`.
+   Em uma atualizacao, os valores atuais aparecem preenchidos e so o que for alterado e regravado.
+4. Abra o aplicativo. Se algum dado ficou em branco ou precisar de ajuste, use a tela **Configuracoes locais**
+   e a tela de diagnostico para validar a `fbclient.dll`.
+5. Ao salvar, o backend sera reiniciado automaticamente e a interface seguira para a tela principal.
 
 ## Variaveis principais do `.env`
 
