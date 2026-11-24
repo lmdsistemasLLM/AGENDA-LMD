@@ -126,10 +126,26 @@ begin
   end;
 end;
 
+{ O Pascal Script do Inno nao expoe TStringList.Values; busca "CHAVE=valor" manualmente. }
+function PrefillValue(const Key: String): String;
+var
+  I: Integer;
+  Prefix: String;
+begin
+  Result := '';
+  Prefix := Key + '=';
+  for I := 0 to PrefillValues.Count - 1 do
+    if Copy(PrefillValues[I], 1, Length(Prefix)) = Prefix then
+    begin
+      Result := Copy(PrefillValues[I], Length(Prefix) + 1, Length(PrefillValues[I]));
+      Exit;
+    end;
+end;
+
 function Prefill(const Key, DefaultValue: String): String;
 begin
   Result := EnvValue(Key, DefaultValue);
-  PrefillValues.Values[Key] := Result;
+  PrefillValues.Add(Key + '=' + Result);
 end;
 
 function DetectFbClient(): String;
@@ -239,7 +255,7 @@ begin
   if EnvHasKey(Key) then
   begin
     { Reescreve apenas o que foi alterado no assistente; o restante do .env fica intacto. }
-    if Value <> PrefillValues.Values[Key] then
+    if Value <> PrefillValue(Key) then
       Updates.Add(Key + '=' + Value);
   end
   else if Value <> '' then
