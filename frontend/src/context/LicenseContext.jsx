@@ -120,7 +120,7 @@ function getCandidateApiUrls() {
   if (queryPort) {
     urls.push(`http://${hostname}:${queryPort}/api`)
   }
-  for (let port = 3001; port <= 3021; port += 1) {
+  for (let port = 3101; port <= 3121; port += 1) {
     urls.push(`http://${hostname}:${port}/api`)
   }
   return [...new Set(urls)]
@@ -132,7 +132,8 @@ async function discoverApiUrl() {
   for (const url of urls) {
     try {
       const response = await axios.get(`${url}/health`, { timeout: API_DISCOVERY_TIMEOUT })
-      if (response.status === 200) {
+      // Exige o marcador do Agenda: outro sistema do cliente pode responder /api/health na mesma faixa de portas.
+      if (response.status === 200 && response.data?.service === 'agenda-lmd-api') {
         return url
       }
     } catch (error) {

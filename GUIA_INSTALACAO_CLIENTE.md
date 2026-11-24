@@ -24,7 +24,7 @@
 
 ```env
 HOST=127.0.0.1
-PORT=3001
+PORT=3101
 FRONTEND_DIST=
 
 FB_HOST=127.0.0.1
@@ -78,7 +78,7 @@ Exemplo de parametros de rede:
 
 ```env
 HOST=0.0.0.0
-PORT=3001
+PORT=3101
 FRONTEND_DIST=C:\CAMINHO\INSTALACAO\Agenda LMD Preview\resources\frontend
 ```
 

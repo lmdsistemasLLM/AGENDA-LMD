@@ -55,7 +55,7 @@ Exemplo resumido:
 
 ```env
 HOST=127.0.0.1
-PORT=3001
+PORT=3101
 
 FB_HOST=127.0.0.1
 FB_PORT=3050

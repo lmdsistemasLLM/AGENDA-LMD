@@ -272,7 +272,7 @@ function Get-EnvValuesFromForm {
         FIREBIRD_PROVIDER = $ProviderBox.SelectedItem.ToString()
         FIREBIRD_CONNECTION_MODE = $ModeBox.SelectedItem.ToString()
         HOST = if ($Existing["HOST"]) { $Existing["HOST"] } else { "127.0.0.1" }
-        PORT = if ($Existing["PORT"]) { $Existing["PORT"] } else { "3001" }
+        PORT = if ($Existing["PORT"]) { $Existing["PORT"] } else { "3101" }
         FRONTEND_DIST = if ($Existing["FRONTEND_DIST"]) { $Existing["FRONTEND_DIST"] } else { (Join-Path $InstallDir "resources\frontend") }
         JWT_SECRET = $Existing["JWT_SECRET"]
         LICENSE_API_URL = if ($Existing["LICENSE_API_URL"]) { $Existing["LICENSE_API_URL"] } else { "" }

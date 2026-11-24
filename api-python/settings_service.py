@@ -147,7 +147,7 @@ def persist_settings(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     }
 
     env_updates["HOST"] = _text(env_values.get("HOST") or "127.0.0.1")
-    env_updates["PORT"] = _text(env_values.get("PORT") or "3001")
+    env_updates["PORT"] = _text(env_values.get("PORT") or "3101")
     env_updates["JWT_SECRET"] = _text(env_values.get("JWT_SECRET") or secrets.token_urlsafe(48))
 
     env_path = write_env_values(env_updates)
