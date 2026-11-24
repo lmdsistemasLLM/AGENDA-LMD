@@ -96,6 +96,7 @@ def health():
     diagnostics = diagnostics_snapshot()
     return {
         "ok": True,
+        "service": "agenda-lmd-api",
         "validationStatus": diagnostics.get("validationStatus"),
         "processArchitecture": diagnostics.get("processArchitecture"),
         "providerRequested": diagnostics.get("providerRequested"),

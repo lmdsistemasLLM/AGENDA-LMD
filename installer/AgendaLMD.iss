@@ -209,14 +209,16 @@ begin
     'Licenca',
     'Informe os dados da licenca do cliente.',
     'Deixe a chave em branco para informar depois no aplicativo.');
-  LicensePage.Add('Endereco da API de licenca:', False);
+  LicensePage.Add('Endereco da API de licenca (URL, ex.: https://.../api):', False);
   LicensePage.Add('Chave da licenca:', False);
   LicensePage.Add('CNPJ do cliente:', False);
+  LicensePage.Add('Token da API de licenca (opcional, ex.: cl_...):', False);
   LicensePage.Values[0] := Prefill('LICENSE_API_URL', '');
   if LicensePage.Values[0] = '' then
     LicensePage.Values[0] := '{#DefaultLicenseApiUrl}';
   LicensePage.Values[1] := Prefill('LICENSE_KEY', '');
   LicensePage.Values[2] := Prefill('LICENSE_CNPJ', '');
+  LicensePage.Values[3] := Prefill('LICENSE_API_KEY', '');
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -224,6 +226,11 @@ begin
   Result := True;
   if WizardSilent() then
     Exit;
+  if CurPageID = LicensePage.ID then
+  begin
+    Result := LicensePageOk();
+    Exit;
+  end;
   if CurPageID = DbPage.ID then
   begin
     if Trim(DbPage.Values[2]) = '' then
@@ -244,6 +251,20 @@ begin
       Result := False;
       Exit;
     end;
+  end;
+end;
+
+function LicensePageOk(): Boolean;
+var
+  Url: String;
+begin
+  Result := True;
+  Url := Lowercase(Trim(LicensePage.Values[0]));
+  if (Url <> '') and (Copy(Url, 1, 7) <> 'http://') and (Copy(Url, 1, 8) <> 'https://') then
+  begin
+    MsgBox('O endereco da API de licenca deve comecar com http:// ou https://.' + #13#10 +
+      'Se voce tem um token (ex.: cl_...), coloque-o no campo Token da API de licenca.', mbError, MB_OK);
+    Result := False;
   end;
 end;
 
@@ -292,6 +313,7 @@ begin
     AddUpdate(Updates, 'LICENSE_API_URL', LicensePage.Values[0]);
     AddUpdate(Updates, 'LICENSE_KEY', LicensePage.Values[1]);
     AddUpdate(Updates, 'LICENSE_CNPJ', LicensePage.Values[2]);
+    AddUpdate(Updates, 'LICENSE_API_KEY', LicensePage.Values[3]);
 
     if Updates.Count = 0 then
       Exit;

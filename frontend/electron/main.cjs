@@ -543,10 +543,16 @@ function isPortAvailable(port) {
   });
 }
 
+const API_SERVICE_ID = 'agenda-lmd-api';
+
+// Confirma que quem responde na porta e a API do Agenda, e nao outro sistema
+// do cliente que tambem exponha /api/health (ex.: outro servico na porta 3001).
 async function isApiHealthy(port) {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/api/health`);
-    return response.ok;
+    if (!response.ok) return false;
+    const payload = await response.json().catch(() => null);
+    return Boolean(payload && payload.service === API_SERVICE_ID);
   } catch {
     return false;
   }
