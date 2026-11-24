@@ -24,7 +24,7 @@ const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
 let apiProcess;
-let apiPort = 3001;
+let apiPort = 3101;
 let externalApiInUse = false;
 let isRestartingApi = false;
 let apiRestartTimer = null;
@@ -218,7 +218,7 @@ function ensureBootstrapEnv() {
   const current = readEnvFileValues(envPath);
   const defaults = {
     HOST: current.HOST || process.env.HOST || '127.0.0.1',
-    PORT: current.PORT || process.env.PORT || '3001',
+    PORT: current.PORT || process.env.PORT || '3101',
     JWT_SECRET: current.JWT_SECRET || crypto.randomBytes(48).toString('hex'),
     LICENSE_API_URL: current.LICENSE_API_URL || DEFAULT_LICENSE_API_URL,
     PROJECT_SLUG: current.PROJECT_SLUG || DEFAULT_PROJECT_SLUG,
@@ -268,7 +268,7 @@ function readLauncherSettings() {
 
   return {
     host: envValues.HOST || process.env.HOST || '127.0.0.1',
-    port: parseInt(envValues.PORT || process.env.PORT || '3001', 10) || 3001,
+    port: parseInt(envValues.PORT || process.env.PORT || '3101', 10) || 3101,
     requestedArch: normalizeArch(
       envValues.FIREBIRD_ARCH ||
       envValues.FB_ARCH ||
@@ -543,10 +543,16 @@ function isPortAvailable(port) {
   });
 }
 
+const API_SERVICE_ID = 'agenda-lmd-api';
+
+// Confirma que quem responde na porta e a API do Agenda, e nao outro sistema
+// do cliente que tambem exponha /api/health (ex.: o backend do Delivery na porta 3001).
 async function isApiHealthy(port) {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/api/health`);
-    return response.ok;
+    if (!response.ok) return false;
+    const payload = await response.json().catch(() => null);
+    return Boolean(payload && payload.service === API_SERVICE_ID);
   } catch {
     return false;
   }

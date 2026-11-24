@@ -112,7 +112,7 @@ function createEmptySettingsForm() {
       database: '',
       user: 'SYSDBA',
       password: '',
-      charset: 'UTF8',
+      charset: 'AUTO',
       clientPath: '',
       arch: 'AUTO',
       provider: 'AUTO',
@@ -221,6 +221,20 @@ function TextField({ label, value, onChange, placeholder = '', type = 'text' }) 
       />
     </label>
   )
+}
+
+const CHARSET_OPTIONS = [
+  { value: 'AUTO', label: 'AUTO (detecta pelo banco)' },
+  { value: 'WIN1252', label: 'WIN1252' },
+  { value: 'UTF8', label: 'UTF8' },
+  { value: 'ISO8859_1', label: 'ISO8859_1' },
+  { value: 'NONE', label: 'NONE' },
+]
+
+function charsetOptions(current) {
+  const value = String(current || '').trim().toUpperCase()
+  if (!value || CHARSET_OPTIONS.some((option) => option.value === value)) return CHARSET_OPTIONS
+  return [...CHARSET_OPTIONS, { value, label: value }]
 }
 
 function SelectField({ label, value, onChange, options }) {
@@ -559,7 +573,12 @@ function ConfigurationWorkspace({
           <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
             <TextField label="Host do Firebird" value={settingsForm.firebird.host} onChange={(value) => onFieldChange('firebird', 'host', value)} />
             <TextField label="Porta do Firebird" value={settingsForm.firebird.port} onChange={(value) => onFieldChange('firebird', 'port', value)} />
-            <TextField label="Charset" value={settingsForm.firebird.charset} onChange={(value) => onFieldChange('firebird', 'charset', value)} />
+            <SelectField
+              label="Charset"
+              value={settingsForm.firebird.charset || 'AUTO'}
+              onChange={(value) => onFieldChange('firebird', 'charset', value)}
+              options={charsetOptions(settingsForm.firebird.charset)}
+            />
             <SelectField
               label="Modo de conexao"
               value={settingsForm.firebird.connectionMode}

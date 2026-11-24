@@ -89,7 +89,7 @@ def query_database(sql: str, params: list | tuple | None = None) -> list[dict]:
         diagnostics["port"] = options["port"]
         diagnostics["host"] = options["host"]
         diagnostics["database"] = options["database"]
-        diagnostics["charset"] = options["charset"]
+        diagnostics["charset"] = provider_info.get("charsetResolved") or options["charset"]
         diagnostics["providerSelected"] = provider_info["provider"]
         _log_debug(
             f"Conectado com sucesso ao Firebird em {connect_duration:.2f}s. "
@@ -216,6 +216,8 @@ def get_agendamentos(empresa: int) -> list[dict]:
               AND os_dt_prevista >= CURRENT_DATE - 90
               AND os_dt_prevista IS NOT NULL
               AND os_hr_prevista IS NOT NULL
+              -- Nao mostra OS canceladas (C) nem faturadas (F); status vazio continua aparecendo.
+              AND COALESCE(TRIM(os_status), '') NOT IN ('C', 'F')
         ) OS
         LEFT JOIN tb_tipo_equipamento e
             ON e.teq_id = OS.os_tipo_equipamento

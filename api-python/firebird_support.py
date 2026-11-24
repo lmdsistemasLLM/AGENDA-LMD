@@ -20,7 +20,13 @@ from config_store import (
 
 DEFAULT_DATABASE = r"C:\CAMINHO\BANCO.FDB"
 DEFAULT_PORT = 3050
-DEFAULT_CHARSET = "UTF8"
+DEFAULT_CHARSET = "AUTO"
+AUTO_CHARSET = "AUTO"
+# Bancos sem charset definido (NONE) em sistemas Windows em portugues gravam texto em WIN1252.
+AUTO_CHARSET_FALLBACK = "WIN1252"
+DETECTION_CHARSET = "NONE"
+# Evita uma conexao extra de deteccao a cada consulta enquanto o processo estiver vivo.
+_DETECTED_CHARSETS: dict[tuple[str, str, str, str, str], str | None] = {}
 DEFAULT_PROVIDER = "AUTO"
 DEFAULT_ARCH = "AUTO"
 COMMON_SEARCH_ROOTS = [
@@ -551,14 +557,80 @@ def _connect_with_firebird_driver(options: dict[str, Any], client_path: str) -> 
     return connection, info
 
 
+def _connect_with_provider(provider: str, options: dict[str, Any], client_path: str) -> tuple[Any, dict[str, Any]]:
+    if provider == FDB_PROVIDER:
+        return _connect_with_fdb(options, client_path)
+    if provider == MODERN_PROVIDER:
+        return _connect_with_firebird_driver(options, client_path)
+    raise ValueError(f"Provider desconhecido: {provider}")
+
+
+def is_auto_charset(value: str | None) -> bool:
+    return not value or str(value).strip().upper() == AUTO_CHARSET
+
+
+def charset_for_database_default(database_charset: str | None) -> str:
+    """Escolhe o charset da conexao a partir do charset padrao do banco."""
+    name = (database_charset or "").strip().upper()
+    if name in {"", "NONE", "OCTETS", "ASCII"}:
+        return AUTO_CHARSET_FALLBACK
+    if name in {"UNICODE_FSS", "UTF-8"}:
+        return "UTF8"
+    return name
+
+
+def _detect_database_charset(provider: str, options: dict[str, Any], client_path: str) -> str | None:
+    """Conecta com charset NONE so para ler o charset padrao do banco (texto ASCII)."""
+    probe_options = {**options, "charset": DETECTION_CHARSET}
+    connection, _info = _connect_with_provider(provider, probe_options, client_path)
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT RDB$CHARACTER_SET_NAME FROM RDB$DATABASE")
+        row = cursor.fetchone()
+        value = row[0] if row else None
+        if isinstance(value, bytes):
+            value = value.decode("ascii", errors="ignore")
+        return str(value).strip() if value is not None else None
+    finally:
+        _close_connection(connection)
+
+
+def _resolve_charset(provider: str, options: dict[str, Any], client_path: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    if not is_auto_charset(options.get("charset")):
+        return options, {"charsetRequested": options.get("charset"), "charsetResolved": options.get("charset")}
+
+    cache_key = (provider, str(options.get("host")), str(options.get("port")), str(options.get("database")), client_path)
+    detected = None
+    detection_error = None
+    if cache_key in _DETECTED_CHARSETS:
+        detected = _DETECTED_CHARSETS[cache_key]
+    else:
+        try:
+            detected = _detect_database_charset(provider, options, client_path)
+            _DETECTED_CHARSETS[cache_key] = detected
+        except Exception as exc:
+            detection_error = str(exc)
+
+    resolved = charset_for_database_default(detected)
+    info = {
+        "charsetRequested": AUTO_CHARSET,
+        "charsetDatabaseDefault": detected,
+        "charsetResolved": resolved,
+    }
+    if detection_error:
+        info["charsetDetectionError"] = detection_error
+        write_runtime_log("firebird", f"Falha ao detectar charset do banco ({provider}): {detection_error}")
+    return {**options, "charset": resolved}, info
+
+
 def _connection_attempts(providers: Iterable[str], options: dict[str, Any], client_path: str) -> tuple[Any, dict[str, Any], list[str]]:
     errors: list[str] = []
     for provider in providers:
         try:
-            if provider == FDB_PROVIDER:
-                return (*_connect_with_fdb(options, client_path), errors)
-            if provider == MODERN_PROVIDER:
-                return (*_connect_with_firebird_driver(options, client_path), errors)
+            effective_options, charset_info = _resolve_charset(provider, options, client_path)
+            connection, info = _connect_with_provider(provider, effective_options, client_path)
+            info.update(charset_info)
+            return connection, info, errors
         except Exception as exc:
             errors.append(_format_driver_error(provider, exc))
             continue
@@ -587,6 +659,9 @@ def open_connection() -> tuple[Any, dict[str, Any], dict[str, Any]]:
     diagnostics["driverVersion"] = provider_info.get("driverVersion")
     diagnostics["serverVersion"] = provider_info.get("serverVersion")
     diagnostics["clientPath"] = provider_info.get("clientPath")
+    for key in ("charsetRequested", "charsetDatabaseDefault", "charsetResolved", "charsetDetectionError"):
+        if key in provider_info:
+            diagnostics[key] = provider_info[key]
     return connection, provider_info, diagnostics
 
 
